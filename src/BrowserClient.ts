@@ -11,6 +11,7 @@ import { window, workspace } from 'vscode'
 import type { ExtensionConfiguration } from './ExtensionConfiguration'
 import { tryPort } from './Config'
 import { BrowserPage } from './BrowserPage'
+import { ChildProcess } from 'child_process'
 
 export class BrowserClient extends EventEmitter {
   private browser: Browser
@@ -29,6 +30,12 @@ export class BrowserClient extends EventEmitter {
     chromeArgs.push('--allow-file-access-from-files')
 
     chromeArgs.push('--remote-allow-origins=*')
+
+    chromeArgs.push('--window-size=1,1')
+
+    chromeArgs.push('--window-position=-300,0')
+
+    // chromeArgs.push('--no-startup-window')
 
     // chromeArgs.push('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36')
 
@@ -63,17 +70,19 @@ export class BrowserClient extends EventEmitter {
       ignoreHTTPSErrors,
       ignoreDefaultArgs: ['--mute-audio'],
       userDataDir,
+      headless: true
     })
 
-    // close the initial empty page
-    ; (await this.browser.pages()).map(i => i.close())
+      // close the initial empty page
+      ; (await this.browser.pages()).map(i => i.close())
   }
 
   public async newPage(): Promise<BrowserPage> {
     if (!this.browser)
       await this.launchBrowser()
 
-    const page = new BrowserPage(this.browser, await this.browser.newPage())
+    let spage = await this.browser.newPage()
+    const page = new BrowserPage(this.browser, spage)
     await page.launch()
     return page
   }

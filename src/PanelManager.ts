@@ -32,56 +32,81 @@ export class PanelManager extends EventEmitter.EventEmitter2 {
     }
   }
 
+  // +++++++++++++++++++++++++++
   public async create(startUrl: string | Uri = this.config.startUrl) {
-    this.refreshSettings()
+    // 刷新设置，以确保当前配置是最新的
+    this.refreshSettings();
 
+    // 如果浏览器客户端未初始化，则创建一个新的实例
     if (!this.browser)
-      this.browser = new BrowserClient(this.config, this.ctx)
+      this.browser = new BrowserClient(this.config, this.ctx);
 
-    const panel = new Panel(this.config, this.browser)
+    // 创建一个新的面板实例，并传入配置和浏览器客户端
+    const panel = new Panel(this.config, this.browser);
 
+    // 监听面板被关闭（disposed）事件
     panel.once('disposed', () => {
+      // 如果当前面板是被关闭的面板，将 current 设置为 undefined
       if (this.current === panel) {
-        this.current = undefined
-        commands.executeCommand('setContext', 'browse-lite-active', false)
+        this.current = undefined;
+        // 更新上下文，表示没有活跃面板
+        commands.executeCommand('setContext', 'browse-lite-active', false);
       }
-      this.panels.delete(panel)
+
+      // 从面板集合中移除已关闭的面板
+      this.panels.delete(panel);
+
+      // 如果没有剩余的面板，处理浏览器客户端
       if (this.panels.size === 0) {
-        this.browser.dispose()
-        this.browser = null
+        this.browser.dispose(); // 释放浏览器资源
+        this.browser = null as unknown as BrowserClient; // 将浏览器设置为 null，避免类型错误
       }
 
-      this.emit('windowDisposed', panel)
-    })
+      // 触发窗口关闭事件
+      this.emit('windowDisposed', panel);
+    });
 
+    // 监听请求打开新窗口的事件
     panel.on('windowOpenRequested', (params) => {
-      this.emit('windowOpenRequested', params)
-    })
+      // 触发窗口打开请求事件
+      this.emit('windowOpenRequested', params);
+    });
 
+    // 监听面板获得焦点的事件
     panel.on('focus', () => {
-      this.current = panel
-      commands.executeCommand('setContext', 'browse-lite-active', true)
-    })
+      this.current = panel; // 设置当前活跃面板
+      // 更新上下文，表示当前面板是活跃的
+      commands.executeCommand('setContext', 'browse-lite-active', true);
+    });
 
+    // 监听面板失去焦点的事件
     panel.on('blur', () => {
+      // 如果当前面板是失去焦点的面板，将 current 设置为 undefined
       if (this.current === panel) {
-        this.current = undefined
-        commands.executeCommand('setContext', 'browse-lite-active', false)
+        this.current = undefined;
+        // 更新上下文，表示没有活跃面板
+        commands.executeCommand('setContext', 'browse-lite-active', false);
       }
-    })
+    });
 
-    this.panels.add(panel)
+    // 将面板添加到面板集合中
+    this.panels.add(panel);
 
-    await panel.launch(startUrl.toString())
+    // 启动面板并加载指定的起始 URL
+    await panel.launch(startUrl.toString());
 
-    this.emit('windowCreated', panel)
+    // 触发窗口创建事件
+    this.emit('windowCreated', panel);
 
+    // 将面板的 dispose 方法注册到上下文的订阅中，以便在合适时调用
     this.ctx.subscriptions.push({
       dispose: () => panel.dispose(),
-    })
+    });
 
-    return panel
+    // 返回创建的面板实例
+    return panel;
   }
+  // +++++++++++++++++++++
 
   public async createFile(filepath: string) {
     if (!filepath)
@@ -91,7 +116,7 @@ export class PanelManager extends EventEmitter.EventEmitter2 {
     if (getConfig('browse-lite.localFileAutoReload')) {
       panel.disposables.push(
         workspace.createFileSystemWatcher(filepath, true, false, false).onDidChange(() => {
-        // TODO: check filename
+          // TODO: check filename
           panel.reload()
         }),
       )

@@ -1,7 +1,7 @@
 {
-  "publisher": "antfu",
-  "name": "browse-lite",
-  "displayName": "Browse Lite",
+  "publisher": "antfurepair",
+  "name": "browse-lite-repair",
+  "displayName": "Browse Lite Repair",
   "version": "0.3.9",
   "packageManager": "pnpm@8.9.2",
   "description": "Embedded browser in VS Code.",
@@ -34,12 +34,12 @@
       {
         "category": "Browse Lite",
         "command": "browse-lite.open",
-        "title": "Open..."
+        "title": "打开..."
       },
       {
         "category": "Browse Lite",
         "command": "browse-lite.openActiveFile",
-        "title": "Open Active File in Preview"
+        "title": "在预览中打开活动文件"
       },
       {
         "category": "Browse Lite",
@@ -321,5 +321,8 @@
   "extensionKind": [
     "ui",
     "workspace"
-  ]
+  ],
+  "dependencies": {
+    "puppeteer": "^23.6.0"
+  }
 }

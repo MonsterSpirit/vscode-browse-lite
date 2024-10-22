@@ -39,127 +39,164 @@ export class Panel extends EventEmitter2 {
   get isDebugPage() {
     return !!this.parentPanel
   }
-
+  // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   public async launch(startUrl?: string) {
     try {
-      this.browserPage = await this.browser.newPage()
+      // 创建一个新的浏览器页面
+      this.browserPage = await this.browser.newPage();
+
+      // 如果成功创建了浏览器页面
       if (this.browserPage) {
+        // 在浏览器页面上设置消息处理器
         this.browserPage.else((data: any) => {
+          // 如果面板存在，将数据发送到面板的 webview
           if (this._panel)
-            this._panel.webview.postMessage(data)
-        })
+            this._panel.webview.postMessage(data);
+        });
       }
     }
     catch (err) {
-      window.showErrorMessage(err.message)
+      // 捕获并显示错误信息
+      window.showErrorMessage(err.message);
     }
 
+    // 创建一个新的 webview 面板
     this._panel = window.createWebviewPanel(
-      Panel.viewType,
-      'Browse Lite',
-      this.isDebugPage ? ViewColumn.Three : ViewColumn.Two,
+      Panel.viewType, // 面板类型
+      'Browse Lite', // 面板标题
+      this.isDebugPage ? ViewColumn.Three : ViewColumn.Two, // 视图列
       {
-        enableScripts: true,
-        retainContextWhenHidden: true,
+        enableScripts: true, // 允许在 webview 中执行脚本
+        retainContextWhenHidden: true, // 隐藏时保持上下文
         localResourceRoots: [
+          // 指定本地资源根路径
           Uri.file(path.join(this.config.extensionPath, 'dist/client')),
         ],
       },
-    )
-    this._panel.webview.html = this.contentProvider.getContent(this._panel.webview)
-    this._panel.onDidDispose(() => this.dispose(), null, this.disposables)
-    this._panel.onDidChangeViewState(() => this.emit(this._panel.active ? 'focus' : 'blur'), null, this.disposables)
+    );
+
+    // 设置 webview 的 HTML 内容
+    this._panel.webview.html = this.contentProvider.getContent(this._panel.webview);
+
+    // 监听面板关闭事件，调用 dispose 方法
+    this._panel.onDidDispose(() => this.dispose(), null, this.disposables);
+
+    // 监听面板视图状态变化事件，发出焦点或失去焦点事件
+    this._panel.onDidChangeViewState(() => this.emit(this._panel.active ? 'focus' : 'blur'), null, this.disposables);
+
+    // 监听 webview 收到消息的事件
     this._panel.webview.onDidReceiveMessage(
       (msg) => {
+        // 处理消息类型为 'extension.updateTitle' 的情况
         if (msg.type === 'extension.updateTitle') {
-          this.title = msg.params.title
+          this.title = msg.params.title; // 更新标题
           if (this._panel) {
-            this._panel.title = this.isDebugPage ? `DevTools - ${this.parentPanel.title}` : msg.params.title
+            // 根据调试状态更新面板标题
+            this._panel.title = this.isDebugPage ? `DevTools - ${this.parentPanel.title}` : msg.params.title;
             try {
-              this._panel.iconPath = Uri.parse(`https://favicon.yandex.net/favicon/${new URL(this.browserPage?.page.url() || '').hostname}`)
+              // 设置面板图标
+              this._panel.iconPath = Uri.parse(`https://favicon.yandex.net/favicon/${new URL(this.browserPage?.page.url() || '').hostname}`);
             }
-            catch (err) {}
-            return
+            catch (err) { }
+            return;
           }
         }
-        if (msg.type === 'extension.windowOpenRequested') {
-          this.emit('windowOpenRequested', { url: msg.params.url })
-          this.url = msg.params.url
-        }
-        if (msg.type === 'extension.openFile')
-          this.handleOpenFileRequest(msg.params)
 
+        // 处理请求打开新窗口的消息
+        if (msg.type === 'extension.windowOpenRequested') {
+          this.emit('windowOpenRequested', { url: msg.params.url });
+          this.url = msg.params.url; // 更新当前 URL
+        }
+
+        // 处理打开文件请求的消息
+        if (msg.type === 'extension.openFile')
+          this.handleOpenFileRequest(msg.params);
+
+        // 处理 JavaScript 对话框请求的消息
         if (msg.type === 'extension.windowDialogRequested') {
-          const { message, type } = msg.params
+          const { message, type } = msg.params;
           if (type == 'alert') {
-            window.showInformationMessage(message)
+            // 显示信息提示
+            window.showInformationMessage(message);
             if (this.browserPage) {
+              // 处理警告对话框
               this.browserPage.send('Page.handleJavaScriptDialog', {
                 accept: true,
-              })
+              });
             }
           }
           else if (type === 'prompt') {
+            // 显示输入框提示
             window
               .showInputBox({ placeHolder: message })
               .then((result) => {
                 if (this.browserPage) {
+                  // 处理输入框对话框
                   this.browserPage.send('Page.handleJavaScriptDialog', {
                     accept: true,
                     promptText: result,
-                  })
+                  });
                 }
-              })
+              });
           }
           else if (type === 'confirm') {
+            // 显示确认选择框
             window.showQuickPick(['Ok', 'Cancel']).then((result) => {
               if (this.browserPage) {
+                // 处理确认对话框
                 this.browserPage.send('Page.handleJavaScriptDialog', {
                   accept: result === 'Ok',
-                })
+                });
               }
-            })
+            });
           }
         }
 
+        // 处理应用状态改变的消息
         if (msg.type === 'extension.appStateChanged') {
-          this.state = msg.params.state
-          this.emit('stateChanged')
+          this.state = msg.params.state; // 更新状态
+          this.emit('stateChanged'); // 发出状态改变事件
         }
 
+        // 如果浏览器页面存在，发送消息到浏览器
         if (this.browserPage) {
           try {
-            // not sure about this one but this throws later with unhandled
-            // 'extension.appStateChanged' message
+            // 不处理 'extension.appStateChanged' 消息，直接发送其他消息
             if (msg.type !== 'extension.appStateChanged')
-              this.browserPage.send(msg.type, msg.params, msg.callbackId)
+              this.browserPage.send(msg.type, msg.params, msg.callbackId);
 
-            this.emit(msg.type, msg.params)
+            // 发出收到的消息类型事件
+            this.emit(msg.type, msg.params);
           }
           catch (err) {
-            window.showErrorMessage(err)
+            // 捕获并显示错误
+            window.showErrorMessage(err);
           }
         }
       },
       null,
       this.disposables,
-    )
+    );
 
+    // 如果提供了起始 URL，更新配置和当前 URL
     if (startUrl) {
-      this.config.startUrl = startUrl
-      this.url = this.url || startUrl
+      this.config.startUrl = startUrl;
+      this.url = this.url || startUrl;
     }
 
+    // 发送应用配置到 webview
     this._panel.webview.postMessage({
       method: 'extension.appConfiguration',
       result: {
-        ...this.config,
-        isDebug: this.isDebugPage,
+        ...this.config, // 扩展配置
+        isDebug: this.isDebugPage, // 调试状态
       },
-    })
+    });
 
-    this.emit('focus')
+    // 发出焦点事件
+    this.emit('focus');
   }
+  // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   public navigateTo(url: string) {
     this._panel.webview.postMessage({
